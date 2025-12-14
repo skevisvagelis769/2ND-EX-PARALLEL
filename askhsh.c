@@ -114,13 +114,14 @@ int main(int argc, char *argv[]){
                         
                     }
                 }
-                MPI_Scatter(C , N*N/p , MPI_DOUBLE ,local_C ,N*N/p, MPI_DOUBLE , root , MPI_COMM_WORLD);
-                MPI_Bcast(B,N,MPI_DOUBLE,root,MPI_COMM_WORLD);
+                MPI_Scatter(C , N*N/p , MPI_DOUBLE ,local_C ,N*N/p, MPI_DOUBLE , root , MPI_COMM_WORLD);//Χωρίζουμε το C σε n/p ίσα κομμάτια και το στέλνουμε σε όλους τους επεξεργαστές
+                MPI_Bcast(B,N,MPI_DOUBLE,root,MPI_COMM_WORLD);// στέλνουμε σε όλους τους επεξεργαστές το Β γιατί ισχύει ότι γινόμενο = Σc[i,j]*b[j] άρα 
+                //χρειαζόμαστε ολόκληρο τον Β σε κάθε επεξεργαστή
                 double temp_sum[N] ;double tmpsum=0;
-                for(int i = 0 ; i<N; i++){temp_sum[i]=0;}
+                for(int i = 0 ; i<N; i++){temp_sum[i]=0;}//μηδενίζουμε το temporary sum
                 double local_prod;
-                for(int i =0; i<N/p;i++){//i loop N/p but j loop runs N times, so C will get parsed N*N/p times
-                    temp_sum[i]=0;
+                for(int i =0; i<N/p;i++){//υπολογίζουμε το τοπικό άθροισμα των n/p στοιχείων του επεξεργαστή
+                    temp_sum[i]=0; //με βάση τον τύπο Σc[i,j]*b[j]
                     for(int j=0;j<N;j++){
                        temp_sum[i]+=local_C[i*N+j]*B[j];
                        
@@ -129,17 +130,18 @@ int main(int argc, char *argv[]){
                     
                 }
                 local_prod=1;
-                for(int i=0;i<N/p;i++){
+                for(int i=0;i<N/p;i++){//παίρνουμε όλους τους όρους του αθροίσματος και τους 
+                    //πολλαπλασιάζουμε για να πάρουμε το γινόμενο όλων των στοιχείων των δύο πινάκων
                     local_prod*=temp_sum[i];
                 }
-                /* double final_prod=1;
-                MPI_Reduce( &local_prod ,&final_prod ,1 , MPI_DOUBLE ,MPI_PROD ,  root , MPI_COMM_WORLD); */
+
                 double final[N],final_prod;
-                MPI_Allgather( temp_sum , N/p ,MPI_DOUBLE,final,N/p , MPI_DOUBLE , MPI_COMM_WORLD);
-                MPI_Reduce( &local_prod , &final_prod,1 , MPI_DOUBLE ,MPI_PROD, root,MPI_COMM_WORLD);
+                MPI_Allgather( temp_sum , N/p ,MPI_DOUBLE,final,N/p , MPI_DOUBLE , MPI_COMM_WORLD);//παίρνουμε όλα τα αθροίσματα των επεξεργαστών  
+                MPI_Reduce( &local_prod , &final_prod,1 , MPI_DOUBLE ,MPI_PROD, root,MPI_COMM_WORLD);//πολλαπλασιάζουμε όλα τα τοπικά γινόμενα των επεξεργαστών 
+                //μεταξύ τους και τα αποθηκεύουμε στο final product 
                 if(rank==0){
                     for(int i=0;i<N;i++){
-                        printf("Sum of R[%d] is %lf\n",i,final[i]);
+                        printf("Sum of R[%d] is %lf\n",i,final[i]);//τυπώνουμε το αποτέλεσμα στην μορφή πίνακα R[Nx1] που είναι το αποτέλεσμα του C(NxΝ) * Β(Νx1) 
                     }
                     printf("The product of all items is %lf",final_prod);
                 }
@@ -147,6 +149,61 @@ int main(int argc, char *argv[]){
             }
             
             case 3:{//TODO:III)
+                if(rank==0){
+                    printf("Please enter N:");
+                    fflush(stdout);  
+            
+                    scanf("%d",&N);
+                    while(p > N || N%p!=0){
+                        printf("Please enter N:");
+                        fflush(stdout);  
+            
+                        scanf("%d",&N);
+                    }
+
+                }   
+                MPI_Bcast( &N , 1 , MPI_INT, root , MPI_COMM_WORLD);//Στέλνουμε σε όλους του επεξεργαστές το μέγεθος των πινάκων
+                double A[N];
+                double B[N];
+                double local_A[N/p],local_B[N/p];
+                if(rank ==0){
+
+                    for(int i=0; i<N;i++){
+
+                            printf("Δώστε το A[%d]",i);
+                            fflush(stdout);  
+                            scanf("%lf",&A[i]);
+
+                    }
+                    for(int i=0; i<N;i++){
+                        printf("Δώστε το Β[%d]",i);
+                        fflush(stdout);  
+                        scanf("%lf",&B[i]);
+                        
+                    }
+                }
+                
+                MPI_Scatter(A ,N/p , MPI_DOUBLE ,local_A ,N/p, MPI_DOUBLE , root , MPI_COMM_WORLD);//Χωρίζουμε το Α σε n/p ίσα κομμάτια και το στέλνουμε σε όλους τους επεξεργαστές
+                MPI_Scatter(B,N/p , MPI_DOUBLE ,local_B ,N/p, MPI_DOUBLE , root , MPI_COMM_WORLD);//Χωρίζουμε το B σε n/p ίσα κομμάτια και το στέλνουμε σε όλους τους επεξεργαστές
+                
+                double temp_sum[N] ;//TODO delete all localsums
+                for(int i = 0 ; i<N; i++){temp_sum[i]=0;}//μηδενίζουμε το temporary sum
+                double local_prod;
+                for(int i =0; i<N/p;i++){//υπολογίζουμε το τοπικό άθροισμα των n/p στοιχείων του επεξεργαστή
+                    temp_sum[i]+=local_A[i]*local_B[i];                     //με βάση τον τύπο ΣΑ[i]*b[i]                      
+                }
+                local_prod=0;
+                for(int i=0;i<N/p;i++){//παίρνουμε όλους τους όρους του αθροίσματος και τους 
+                    //πολλαπλασιάζουμε για να πάρουμε το γινόμενο όλων των στοιχείων των δύο πινάκων
+                    local_prod+=temp_sum[i];
+                }
+                double final[N],final_prod;
+                MPI_Reduce( &local_prod ,&final_prod ,1 ,MPI_DOUBLE , MPI_SUM , root , MPI_COMM_WORLD);
+                if(rank==0){
+                    printf("The product of all items is %lf",final_prod);
+                }
+
+
                 break;
 
             }
