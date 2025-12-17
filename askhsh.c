@@ -212,7 +212,7 @@ int main(int argc, char *argv[]){
 
             }
                 
-            case 5:{//TODO:V)
+            case 5:{//exit
                 MPI_Finalize();
                 exit(0);
             }
