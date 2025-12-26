@@ -148,7 +148,7 @@ int main(int argc, char *argv[]){
                 break;
             }
             
-            case 3:{//TODO:III)
+            case 3:{
                 if(rank==0){
                     printf("Please enter N:");
                     fflush(stdout);  
