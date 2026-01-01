@@ -50,19 +50,28 @@ int main(int argc, char *argv[]){
                 double local_D[N*N/p];
                 
                 if(rank==0){
+                    printf("Number of processors are : %d",p);
                     for(int i = 0; i<N;i++){
                         for(int j = 0; j<N;j++){
                             printf("Enter C[%d][%d]",i,j);
                             fflush(stdout);  
             
                             scanf("%lf",&C[i][j]);
+                            
+                        }
+                        
+                    }
+                     for(int i = 0; i<N;i++){
+                        for(int j = 0; j<N;j++){
                             printf("Enter D[%d][%d]",i,j);
                             fflush(stdout);  
             
                             scanf("%lf",&D[i][j]);
+                            
                         }
                         
                     }
+                    
                 }
                 MPI_Scatter(C , N*N/p,  MPI_DOUBLE ,local_C , N*N/p ,MPI_DOUBLE , root , MPI_COMM_WORLD);//Χωρίζουμε τους πίνακες D και C
                 MPI_Scatter(D , N*N/p,  MPI_DOUBLE ,local_D , N*N/p ,MPI_DOUBLE , root , MPI_COMM_WORLD);//Σε N*N/p ίσα κομμάτια και ο κάθε 
@@ -186,7 +195,7 @@ int main(int argc, char *argv[]){
                 MPI_Scatter(A ,N/p , MPI_DOUBLE ,local_A ,N/p, MPI_DOUBLE , root , MPI_COMM_WORLD);//Χωρίζουμε το Α σε n/p ίσα κομμάτια και το στέλνουμε σε όλους τους επεξεργαστές
                 MPI_Scatter(B,N/p , MPI_DOUBLE ,local_B ,N/p, MPI_DOUBLE , root , MPI_COMM_WORLD);//Χωρίζουμε το B σε n/p ίσα κομμάτια και το στέλνουμε σε όλους τους επεξεργαστές
                 
-                double temp_sum[N] ;//TODO delete all localsums
+                double temp_sum[N] ;
                 for(int i = 0 ; i<N; i++){temp_sum[i]=0;}//μηδενίζουμε το temporary sum
                 double local_prod;
                 for(int i =0; i<N/p;i++){//υπολογίζουμε το τοπικό άθροισμα των n/p στοιχείων του επεξεργαστή
@@ -208,10 +217,106 @@ int main(int argc, char *argv[]){
 
             }
             case 4: {//TODO:IV)
-                break;git 
+                if(rank==0){
+                    printf("Please enter N:");
+                    fflush(stdout);  
+            
+                    scanf("%d",&N);
+                    while(N!=p){
+                        printf("Please enter N:");
+                        fflush(stdout);  
+            
+                        scanf("%d",&N);
+                    }
+
+                }  
+                MPI_Bcast( &N , 1 , MPI_INT, root , MPI_COMM_WORLD);//Στέλνουμε σε όλους του επεξεργαστές το μέγεθος των πινάκων
+                double C[N][N];
+                double D[N][N];
+                double local_res[N];
+                double C_to_be_sent[N];
+                double D_to_be_sent[N];
+                double local_C[N];
+                double local_D[N];
+                if(rank==0){
+                    
+                    for(int i = 0; i<N;i++){
+                        for(int j = 0; j<N;j++){
+                            printf("Enter C[%d][%d]",i,j);
+                            fflush(stdout);  
+            
+                            scanf("%lf",&C[i][j]);
+                            
+                        }
+                        
+                    }
+                     for(int i = 0; i<N;i++){
+                        for(int j = 0; j<N;j++){
+                            printf("Enter D[%d][%d]",i,j);
+                            fflush(stdout);  
+            
+                            scanf("%lf",&D[i][j]);
+                            
+                        }
+                        
+                    }
+                    
+                }
+                MPI_Scatter( C , N , MPI_DOUBLE , local_C , N , MPI_DOUBLE , 0 , MPI_COMM_WORLD);
+                MPI_Scatter( D , N , MPI_DOUBLE , local_D , N , MPI_DOUBLE , 0 , MPI_COMM_WORLD);
+                for(int i = 0; i<N;i++){
+                    local_res[i]=0;
+                }    
+                for(int i=0;i<N;i++){
+                    local_res[i]+=local_C[rank]*local_D[i];
+                }
+                int next_proc,prev_proc;
+
+                if(rank==0){
+                        next_proc = rank+1;
+                        prev_proc = p-1;
+                    }else if(rank==p-1){
+                        next_proc=0;
+                        prev_proc=rank-1;
+
+                    }else{
+                        next_proc=rank+1;
+                        prev_proc=rank-1;
+                    }
+
+                
+                for(int k = 1;k<p;k++ ){
+                    
+                    double received_D[N];
+                    MPI_Send(local_D,N,MPI_DOUBLE,prev_proc,0,MPI_COMM_WORLD);
+                    MPI_Recv( received_D , N , MPI_DOUBLE , next_proc , 0,MPI_COMM_WORLD , MPI_STATUS_IGNORE);
+                    for(int j = 0;j<N;j++){
+                        local_D[j]=received_D[j];
+                    }
+
+                    int column = (rank + k)%p;
+
+                    for(int l = 0; l<N; l++ ){
+                        local_res[l]+=local_C[column]*local_D[l];
+                    }
+                }
+
+                double final_res[N][N];
+                MPI_Gather(local_res,N,MPI_DOUBLE,final_res,N,MPI_DOUBLE,0,MPI_COMM_WORLD);
+
+                if(rank==0){
+                    printf("Πίνακας Αποτελέσματος: \n");
+                    for(int i = 0; i<N;i++){
+                        for(int j =0; j<N;j++){
+                            printf("R[%d][%d] = %lf ",i,j,final_res[i][j]);
+                        }
+                        printf("\n");
+                    }
+                }
+                break;
 
             }
-                
+            //TODO: for erotima 1, above tropos and hmeromhnia paradoshs
             case 5:{//exit
                 MPI_Finalize();
                 exit(0);
