@@ -262,47 +262,56 @@ int main(int argc, char *argv[]){
                     }
                     
                 }
-                MPI_Scatter( C , N , MPI_DOUBLE , local_C , N , MPI_DOUBLE , 0 , MPI_COMM_WORLD);
-                MPI_Scatter( D , N , MPI_DOUBLE , local_D , N , MPI_DOUBLE , 0 , MPI_COMM_WORLD);
+                MPI_Scatter( C , N , MPI_DOUBLE , local_C , N , MPI_DOUBLE , 0 , MPI_COMM_WORLD);//Χωρίζουμε το C σε N ίσα κομμάτια και το στέλνουμε σε όλους τους επεξεργαστές
+                //έτσι ώστε ο κάθε επεξεργαστής να πάρει μία γραμμή του πίνακα, με βάση τον αλγόριθμο
+                MPI_Scatter( D , N , MPI_DOUBLE , local_D , N , MPI_DOUBLE , 0 , MPI_COMM_WORLD);//Χωρίζουμε το D σε N ίσα κομμάτια και το στέλνουμε σε όλους τους επεξεργαστές
+                //έτσι ώστε ο κάθε επεξεργαστής να πάρει μία γραμμή του πίνακα, με βάση τον αλγόριθμο
                 for(int i = 0; i<N;i++){
                     local_res[i]=0;
                 }    
                 for(int i=0;i<N;i++){
-                    local_res[i]+=local_C[rank]*local_D[i];
+                    local_res[i]+=local_C[rank]*local_D[i];//υπολογίζουμε το τοπικό γινόμενο της γραμμής του C και D του κάθε επεξεργαστή. Επειδή κάνουμε scatter 
+                    //τον C και τον D σε Ν κομμάτια, θα ισχύει ότι ο local_C[rank] θα είναι η γραμμή του C που αντιστοιχεί στον εκάστοτε επεξεργαστή. 
                 }
                 int next_proc,prev_proc;
-
+                //υπολογίζουμε ποιος θα είναι ο επόμενος και ο προηγούμενος επεξεργαστής έτσι ώστε να μπορούμε να στείλουμε/λάβουμε την γραμμή του D που 
+                //απαιτείται για τον υπολογισμό του αποτελέσματος με βάση τον αλγόριθμο
                 if(rank==0){
-                        next_proc = rank+1;
-                        prev_proc = p-1;
+                        next_proc = rank+1; //αν είναι ο P0 ο επόμενος επεξεργαστής θα είναι ο P0+1=P1
+                        prev_proc = p-1;//αν είναι ο P0 ο προηγούμενος επεξεργαστής θα είναι ο P-1=P3 (έστω ότι P=4) διότι οι επεξεργαστές είναι 
+                        //συνδεδεμένοι σε δακτύλιο άρα ο P0 και ο Pτελικός συνδέονται μεταξύ τους
                     }else if(rank==p-1){
-                        next_proc=0;
-                        prev_proc=rank-1;
+                        next_proc=0;//αν ο P είναι ο τελευταίος στη σειρά του δακτυλίου, τότε ο επόμενος επεξεργαστής θα είναι ο P0
+                        prev_proc=rank-1;//αν ο P είναι ο τελευταίος στη σειρά του δακτυλίου, τότε ο προηγούμενος επεξεργαστής θα είναι ο Pτελικός-1
 
-                    }else{
+                    }else{//αλλιώς, ο επόμενος και προηγούμενος επεξεργαστής δίνεται απλώς με μία πρόσθεση ή αφαίρεση με το 1
                         next_proc=rank+1;
                         prev_proc=rank-1;
                     }
 
                 
-                for(int k = 1;k<p;k++ ){
+                for(int k = 1;k<p;k++ ){ //για όλους τους επεξεργαστές εκτός του 0, αφού έχουμε υπολογίσει το τοπικό γινόμενο για τον 0
                     
                     double received_D[N];
-                    MPI_Send(local_D,N,MPI_DOUBLE,prev_proc,0,MPI_COMM_WORLD);
-                    MPI_Recv( received_D , N , MPI_DOUBLE , next_proc , 0,MPI_COMM_WORLD , MPI_STATUS_IGNORE);
+                    MPI_Send(local_D,N,MPI_DOUBLE,prev_proc,0,MPI_COMM_WORLD);//στέλνουμε την γραμμή D που έχουμε στον προηγούμενο επεξεργαστή
+                    MPI_Recv( received_D , N , MPI_DOUBLE , next_proc , 0,MPI_COMM_WORLD , MPI_STATUS_IGNORE);//λαμβάνουμε την γραμμή D από τον επόμενο επεξεργαστή
                     for(int j = 0;j<N;j++){
-                        local_D[j]=received_D[j];
+                        local_D[j]=received_D[j]; //η γραμμή D που είχαμε θα γίνει ίση με αυτή που λάβαμε
                     }
 
-                    int column = (rank + k)%p;
+                    int column = (rank + k)%p;// θα υπολογίσουμε την στήλη του C με την οποία θα κάνουμε τις επόμενες πράξεις: 
+                    //Έστω rank = 2 k=1 p=4: column = (2+1)mod4 = 3 mod 4= 3, k=2 p=4: column = (2+2)mod4 = 4 mod 4= 0, 
+                    //k=3 p=4: column = (2+3)mod4 = 5 mod 4= 1,άρα για κάθε επανάληψη του βρόχου, υπολογίζουμε παρακάτω το τοπικό 
+                    //αποτέλεσμα πολλαπλασιάζοντας την γραμμή του D με την ανάλογη στήλη και γραμμή του C
 
                     for(int l = 0; l<N; l++ ){
                         local_res[l]+=local_C[column]*local_D[l];
                     }
                 }
 
-                double final_res[N][N];
-                MPI_Gather(local_res,N,MPI_DOUBLE,final_res,N,MPI_DOUBLE,0,MPI_COMM_WORLD);
+                double final_res[N][N]; 
+                MPI_Gather(local_res,N,MPI_DOUBLE,final_res,N,MPI_DOUBLE,0,MPI_COMM_WORLD);//παίρνουμε όλα τα τοπικά
+                // αποτελέσματα όλων των επεξεργαστών και τα βάζουμε σε ένα πίνακα τελικού αποτελέσματος
 
                 if(rank==0){
                     printf("Πίνακας Αποτελέσματος: \n");
