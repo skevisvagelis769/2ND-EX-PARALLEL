@@ -171,7 +171,7 @@ int main(int argc, char *argv[]){
                     }
 
                 }   
-                MPI_Bcast( &N , 1 , MPI_INT, root , MPI_COMM_WORLD);//Στέλνουμε σε όλους του επεξεργαστές το μέγεθος των πινάκων
+                MPI_Bcast( &N , 1 , MPI_INT, root , MPI_COMM_WORLD);//Στέλνουμε σε όλους τους επεξεργαστές το μέγεθος των πινάκων
                 double A[N];
                 double B[N];
                 double local_A[N/p],local_B[N/p];
@@ -216,7 +216,7 @@ int main(int argc, char *argv[]){
                 break;
 
             }
-            case 4: {//TODO:IV)
+            case 4: {
                 if(rank==0){
                     printf("Please enter N:");
                     fflush(stdout);  
@@ -325,7 +325,6 @@ int main(int argc, char *argv[]){
                 break;
 
             }
-            //TODO: for erotima 1, above tropos and hmeromhnia paradoshs
             case 5:{//exit
                 MPI_Finalize();
                 exit(0);
